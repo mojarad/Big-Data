@@ -1,0 +1,269 @@
+
+# # Spark DataFrame Basics
+# 
+# Spark DataFrames are the workhouse and main way of working with Spark and Python post Spark 2.0. DataFrames act as powerful versions of tables, with rows and columns, easily handling large datasets. The shift to DataFrames provides many advantages:
+# * A much simpler syntax
+# * Ability to use SQL directly in the dataframe
+# * Operations are automatically distributed across RDDs
+#     
+# If you've used R or even the pandas library with Python you are probably already familiar with the concept of DataFrames. Spark DataFrame expand on a lot of these concepts, allowing you to transfer that knowledge easily by understanding the simple syntax of Spark DataFrames. Remember that the main advantage to using Spark DataFrames vs those other programs is that Spark can handle data across many RDDs, huge data sets that would never fit on a single computer. That comes at a slight cost of some "peculiar" syntax choices, but after this course you will feel very comfortable with all those topics!
+# 
+# Let's get started!
+# 
+# ## Creating a DataFrame
+# 
+# First we need to start a SparkSession:
+
+# In[1]:
+
+
+from pyspark.sql import SparkSession
+
+
+# Then start the SparkSession
+
+# In[2]:
+
+
+spark = SparkSession.builder.appName("Basics").getOrCreate()
+
+
+# In[3]:
+
+
+df = spark.read.json('people.json')
+
+
+# In[4]:
+
+
+# Showing the data
+df.show()
+
+
+# In[5]:
+
+
+df.printSchema()
+
+
+# In[6]:
+
+
+df.columns 
+
+
+# In[ ]:
+
+
+df.describe().show()
+
+
+# In[ ]:
+
+
+df.summary
+
+
+# Some data types make it easier to infer schema (like tabular formats such as csv which we will show later). 
+# 
+# However you often have to set the schema yourself if you aren't dealing with a .read method that doesn't have inferSchema() built-in.
+# 
+# Spark has all the tools you need for this, it just requires a very specific structure:
+
+# In[ ]:
+
+
+from pyspark.sql.types import StructField,StringType,IntegerType,StructType
+
+
+# Next we need to create the list of Structure fields
+#     * :param name: string, name of the field.
+#     * :param dataType: :class:`DataType` of the field.
+#     * :param nullable: boolean, whether the field can be null (None) or not.
+
+# In[ ]:
+
+
+data_schema = [StructField("age", IntegerType(), True),StructField("name", StringType(), True)]
+
+
+# In[ ]:
+
+
+data_schema
+
+
+# In[ ]:
+
+
+final_struc = StructType(fields=data_schema)
+
+
+# In[ ]:
+
+
+final_struc
+
+
+# In[ ]:
+
+
+df = spark.read.json('people.json', schema=final_struc)
+
+
+# In[ ]:
+
+
+df.printSchema()
+
+
+# ### Grabbing the data
+
+# In[ ]:
+
+
+df.show()
+
+
+# In[ ]:
+
+
+type(df['age'])
+
+
+# In[ ]:
+
+
+df['age']
+
+
+# In[ ]:
+
+
+df.select('age')
+
+
+# In[ ]:
+
+
+type(df.select('age'))
+
+
+# In[ ]:
+
+
+df.select('age').show()
+
+
+# In[ ]:
+
+
+# Returns list of Row objects
+df.head(2)
+
+
+# Multiple Columns:
+
+# In[ ]:
+
+
+df.select(['age','name'])
+
+
+# In[ ]:
+
+
+df.select(['age','name']).show()
+
+
+# ### Creating new columns
+
+# In[ ]:
+
+
+# Adding a new column 
+df.withColumn('newage',df['age']+2).show()
+
+
+# In[ ]:
+
+
+df.show()
+
+
+# In[ ]:
+
+
+# Simple Rename
+df.withColumnRenamed('age','supernewage').show()
+
+
+# More complicated operations to create new columns
+
+# In[ ]:
+
+
+adf=df.withColumn('doubleage',df['age']*2)
+
+
+# In[ ]:
+
+
+adf.show()
+
+
+# In[ ]:
+
+
+df.withColumn('add_one_age',df['age']+1).show()
+
+
+# In[ ]:
+
+
+df.withColumn('half_age',df['age']/2).show()
+
+
+# In[ ]:
+
+
+df.withColumn('half_age',df['age']/2)
+
+
+# We'll discuss much more complicated operations later on!
+
+# ### Using SQL
+# 
+# To use SQL queries directly with the dataframe, you will need to register it to a temporary view:
+
+# In[ ]:
+
+
+# Register the DataFrame as a SQL temporary view
+df.createOrReplaceTempView("people")
+
+
+# In[ ]:
+
+
+sql_results = spark.sql("SELECT * FROM people")
+
+
+# In[ ]:
+
+
+sql_results
+
+
+# In[ ]:
+
+
+sql_results.show()
+
+
+# In[ ]:
+
+
+spark.sql("SELECT * FROM people WHERE age=30").show()
+
