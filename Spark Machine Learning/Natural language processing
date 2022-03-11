@@ -1,0 +1,193 @@
+
+# # NLP Code Along
+# 
+# For this code along we will build a spam filter!
+# We'll use a classic dataset for this - UCI Repository SMS Spam Detection: https://archive.ics.uci.edu/ml/datasets/SMS+Spam+Collection
+
+# In[1]:
+
+
+from pyspark.sql import SparkSession
+
+
+# In[2]:
+
+
+spark = SparkSession.builder.appName('nlp').getOrCreate()
+
+
+# In[3]:
+
+
+data = spark.read.csv("smsspamcollection/SMSSpamCollection",inferSchema=True,sep='\t')
+
+
+# In[4]:
+
+
+data.show()
+
+
+# In[5]:
+
+
+data = data.withColumnRenamed('_c0','class').withColumnRenamed('_c1','text')
+
+
+# In[6]:
+
+
+data.show()
+
+
+# ## Clean and Prepare the Data
+
+# ** Create a new length feature: **
+
+# In[7]:
+
+
+from pyspark.sql.functions import length
+
+
+# In[8]:
+
+
+data = data.withColumn('length',length(data['text']))
+
+
+# In[9]:
+
+
+data.show()
+
+
+# In[10]:
+
+
+data.groupby('class').mean().show()
+
+
+# ## Feature Transformations
+
+# In[11]:
+
+
+from pyspark.ml.feature import Tokenizer
+tokenizer = Tokenizer(inputCol="text", outputCol="token_text")
+
+
+# In[12]:
+
+
+from pyspark.ml.feature import StopWordsRemover
+stopremove = StopWordsRemover(inputCol='token_text',outputCol='stop_tokens')
+
+
+# In[13]:
+
+
+from pyspark.ml.feature import Word2Vec
+word2Vec = Word2Vec(inputCol='stop_tokens',outputCol='word2vec')
+
+
+# In[14]:
+
+
+from pyspark.ml.feature import StringIndexer
+ham_spam_to_num = StringIndexer(inputCol='class',outputCol='label')
+
+
+# In[15]:
+
+
+data.show()
+
+
+# In[16]:
+
+
+from pyspark.ml.feature import VectorAssembler
+from pyspark.ml.linalg import Vector
+
+
+# In[17]:
+
+
+clean_up = VectorAssembler(inputCols=['word2vec','length'],outputCol='features')
+
+
+# ### The Model
+# 
+
+# In[18]:
+
+
+from pyspark.ml import Pipeline
+data_prep_pipe = Pipeline(stages=[ham_spam_to_num,tokenizer,stopremove,word2Vec,clean_up])
+
+
+# In[19]:
+
+
+cleaner = data_prep_pipe.fit(data)
+
+
+# In[20]:
+
+
+clean_data = cleaner.transform(data)
+
+
+# In[21]:
+
+
+clean_data.show()
+
+
+# In[22]:
+
+
+clean_data = clean_data.select(['label','features'])
+clean_data.show()
+
+
+# In[23]:
+
+
+(training,testing) = clean_data.randomSplit([0.7,0.3])
+
+
+# In[24]:
+
+
+from pyspark.ml.classification import LogisticRegression
+lr = LogisticRegression()
+
+
+# In[25]:
+
+
+spam_predictor = lr.fit(training)
+
+
+# In[26]:
+
+
+test_results = spam_predictor.transform(testing)
+
+
+# In[27]:
+
+
+test_results.show()
+
+
+# In[28]:
+
+
+from pyspark.ml.evaluation import MulticlassClassificationEvaluator
+acc_eval = MulticlassClassificationEvaluator()
+acc = acc_eval.evaluate(test_results)
+print("Accuracy of model at predicting spam was: {}".format(acc))
+
