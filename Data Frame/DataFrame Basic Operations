@@ -1,0 +1,184 @@
+
+# # Basic Operations
+# 
+# This lecture will cover some basic operations with Spark DataFrames.
+# 
+# We will play around with some stock data from Apple.
+
+# In[1]:
+
+
+from pyspark.sql import SparkSession
+
+
+# In[2]:
+
+
+spark = SparkSession.builder.appName("Operations").getOrCreate()
+
+
+# In[3]:
+
+
+# Let Spark know about the header and infer the Schema types!
+df = spark.read.csv('appl_stock.csv',inferSchema=True,header=True)
+
+
+# In[4]:
+
+
+df.printSchema()
+
+
+# In[5]:
+
+
+df.show()
+
+
+# In[6]:
+
+
+df.head(3) [0]
+
+
+# ## Filtering Data
+# 
+# A large part of working with DataFrames is the ability to quickly filter out data based on conditions. Spark DataFrames are built on top of the Spark SQL platform, which means that is you already know SQL, you can quickly and easily grab that data using SQL commands, or using the DataFram methods (which is what we focus on in this course).
+
+# In[7]:
+
+
+# Using SQL
+df.filter("Close<500").show()
+
+
+# In[8]:
+
+
+# Using SQL with .select()
+df.filter("Close<500").select('Open').show()
+
+
+# In[9]:
+
+
+# Using SQL with .select()
+df.filter("Close<500").select(['Open','Close']).show()
+
+
+# Using normal python comparison operators is another way to do this, they will look very similar to SQL operators, except you need to make sure you are calling the entire column within the dataframe, using the format: df["column name"]
+# 
+# Let's see some examples:
+
+# In[10]:
+
+
+#Using normal python comparison operators, using the format: df["column name"]
+df.filter(df["Close"] < 200).show()
+
+
+# In[11]:
+
+
+# Will produce an error, make sure to read the error!
+# df.filter(df["Close"] < 200 and df['Open'] > 200).show()
+
+
+# In[12]:
+
+
+# Make sure to add in the parenthesis separating the statements!
+df.filter( (df["Close"] < 200) & (df['Open'] > 200) ).show()
+
+
+# In[13]:
+
+
+# Make sure to add in the parenthesis separating the statements!
+df.filter( (df["Close"] < 200) | (df['Open'] > 200) ).show()
+
+
+# In[14]:
+
+
+# Make sure to add in the parenthesis separating the statements!
+df.filter( (df["Close"] < 200) & ~(df['Open'] < 200) ).show()
+
+
+# In[15]:
+
+
+df.filter(df["Low"] == 197.16).show()
+
+
+# In[16]:
+
+
+# Collecting results as Python objects
+df.filter(df["Low"] == 197.16).collect()
+
+
+# In[17]:
+
+
+result = df.filter(df["Low"] == 197.16).collect()
+
+
+# In[18]:
+
+
+result
+
+
+# In[19]:
+
+
+# Note the nested structure returns a nested row object
+type(result[0])
+
+
+# In[20]:
+
+
+row = result[0]
+
+
+# Rows can be called to turn into dictionaries
+
+# In[21]:
+
+
+row.asDict()
+
+
+# In[22]:
+
+
+row.asDict()['Date']
+
+
+# In[23]:
+
+
+result[0]
+
+
+# In[24]:
+
+
+for item in result[0]:
+    print(item)
+
+
+# In[ ]:
+
+
+
+
+
+# In[ ]:
+
+
+
+
