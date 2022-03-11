@@ -1,0 +1,185 @@
+
+
+# In[27]:
+
+
+from pyspark.sql import SparkSession
+
+
+# In[28]:
+
+
+spark = SparkSession.builder.appName('logregconsult').getOrCreate()
+
+
+# In[29]:
+
+
+data = spark.read.csv('customer_churn.csv',inferSchema=True,
+                     header=True)
+
+
+# In[30]:
+
+
+data.show()
+
+
+# In[31]:
+
+
+data.printSchema()
+
+
+# ### Check out the data
+
+# In[32]:
+
+
+data.describe().show()
+
+
+# In[33]:
+
+
+data.columns
+
+
+# ### Format for MLlib
+# 
+# We'll ues the numerical columns. We'll include Account Manager because its easy enough, but keep in mind it probably won't be any sort of a signal because the agency mentioned its randomly assigned!
+
+# In[34]:
+
+
+from pyspark.ml.feature import VectorAssembler
+
+
+# In[35]:
+
+
+assembler = VectorAssembler(inputCols=['Age',
+ 'Total_Purchase',
+ 'Account_Manager',
+ 'Years',
+ 'Num_Sites'],outputCol='features')
+
+
+# In[36]:
+
+
+output = assembler.transform(data)
+
+
+# In[37]:
+
+
+output.select('features').show()
+
+
+# In[38]:
+
+
+final_data = output.select('features','churn')
+
+
+# In[39]:
+
+
+final_data.show()
+
+
+# ### Test Train Split
+
+# In[40]:
+
+
+train_churn,test_churn = final_data.randomSplit([0.7,0.3])
+
+
+# In[41]:
+
+
+train_churn.describe().show()
+
+
+# In[42]:
+
+
+test_churn.describe().show()
+
+
+# ### Fit the model
+
+# In[43]:
+
+
+# from pyspark.ml.classification import LogisticRegression
+# #default inputs
+# lr_churn = LogisticRegression(featuresCol='features',labelCol='label',predictionCol='prediction')
+
+
+# In[44]:
+
+
+from pyspark.ml.classification import LogisticRegression
+lr_churn = LogisticRegression(labelCol='churn')
+
+
+# In[ ]:
+
+
+fitted_churn_model = lr_churn.fit(train_churn)
+
+
+# ### Evaluate results
+# 
+# Let's evaluate the results on the data set we were given (using the test data)
+
+# In[ ]:
+
+
+pred_and_labels = fitted_churn_model.evaluate(test_churn)
+
+
+# In[ ]:
+
+
+pred_and_labels.predictions.show()
+
+
+# ### Using Evaluator
+
+# In[ ]:
+
+
+from pyspark.ml.evaluation import BinaryClassificationEvaluator
+
+
+# In[ ]:
+
+
+churn_eval = BinaryClassificationEvaluator(rawPredictionCol='prediction',
+                                           labelCol='churn')
+
+
+# In[ ]:
+
+
+# churn_eval = BinaryClassificationEvaluator(rawPredictionCol='rawprediction',
+#                                            labelCol='label',
+#                                            metricName='accuracy'
+# )
+
+
+# In[ ]:
+
+
+result = churn_eval.evaluate(pred_and_labels.predictions)
+
+
+# In[ ]:
+
+
+result
+
