@@ -1,0 +1,234 @@
+
+
+# # Tree Methods
+# 
+# 
+#     
+# We will be using a college dataset to try to classify colleges as Private or Public based off these features:
+# 
+#     Private A factor with levels No and Yes indicating private or public university
+#     Apps Number of applications received
+#     Accept Number of applications accepted
+#     Enroll Number of new students enrolled
+#     Top10perc Pct. new students from top 10% of H.S. class
+#     Top25perc Pct. new students from top 25% of H.S. class
+#     F.Undergrad Number of fulltime undergraduates
+#     P.Undergrad Number of parttime undergraduates
+#     Outstate Out-of-state tuition
+#     Room.Board Room and board costs
+#     Books Estimated book costs
+#     Personal Estimated personal spending
+#     PhD Pct. of faculty with Ph.D.’s
+#     Terminal Pct. of faculty with terminal degree
+#     S.F.Ratio Student/faculty ratio
+#     perc.alumni Pct. alumni who donate
+#     Expend Instructional expenditure per student
+#     Grad.Rate Graduation rate
+
+# In[1]:
+
+
+#Tree methods Example
+from pyspark.sql import SparkSession
+spark = SparkSession.builder.appName('treecode').getOrCreate()
+
+
+# In[2]:
+
+
+# Load training data
+data = spark.read.csv('College.csv',inferSchema=True,header=True)
+
+
+# In[3]:
+
+
+data.printSchema()
+
+
+# In[4]:
+
+
+data.head()
+
+
+# In[5]:
+
+
+data.show()
+
+
+# ### Spark Formatting of Data
+
+# In[6]:
+
+
+# A few things we need to do before Spark can accept the data!
+# It needs to be in the form of two columns
+# ("label","features")
+
+# Import VectorAssembler and Vectors
+from pyspark.ml.linalg import Vectors
+from pyspark.ml.feature import VectorAssembler
+
+
+# In[7]:
+
+
+data.columns
+
+
+# In[8]:
+
+
+assembler = VectorAssembler(
+  inputCols=['Apps',
+             'Accept',
+             'Enroll',
+             'Top10perc',
+             'Top25perc',
+             'F_Undergrad',
+             'P_Undergrad',
+             'Outstate',
+             'Room_Board',
+             'Books',
+             'Personal',
+             'PhD',
+             'Terminal',
+             'S_F_Ratio',
+             'perc_alumni',
+             'Expend',
+             'Grad_Rate'],
+              outputCol="features")
+
+
+# In[9]:
+
+
+output = assembler.transform(data)
+
+
+# In[10]:
+
+
+output.show()
+
+
+# In[11]:
+
+
+output.schema
+
+
+# Deal with Private column being "yes" or "no"
+
+# In[12]:
+
+
+from pyspark.ml.feature import StringIndexer
+
+
+# In[13]:
+
+
+indexer = StringIndexer(inputCol="Private", outputCol="PrivateIndex")
+output_fixed = indexer.fit(output).transform(output)
+output_fixed.head(1)
+
+
+# In[14]:
+
+
+output_fixed.head(1)
+
+
+# In[15]:
+
+
+final_data = output_fixed.select("features",'PrivateIndex')
+final_data.show()
+
+
+# In[16]:
+
+
+train_data,test_data = final_data.randomSplit([0.7,0.3])
+
+
+# In[17]:
+
+
+test_data.describe().show()
+
+
+# In[18]:
+
+
+train_data.describe().show()
+
+
+# ### The Classifier
+
+# In[19]:
+
+
+from pyspark.ml.classification import DecisionTreeClassifier
+from pyspark.ml import Pipeline
+
+
+# In[20]:
+
+
+dtc = DecisionTreeClassifier(featuresCol='features',labelCol='PrivateIndex')
+
+
+# In[21]:
+
+
+# #default inputs
+# dtc = DecisionTreeClassifier(featuresCol='features',labelCol='label', predictionCol='prediction')
+
+
+# In[ ]:
+
+
+dtc_model = dtc.fit(train_data)
+
+
+# In[ ]:
+
+
+dtc_predictions = dtc_model.transform(test_data)
+
+
+# In[ ]:
+
+
+dtc_predictions.show()
+
+
+# In[ ]:
+
+
+dtc_predictions.select("features","PrivateIndex").show()
+
+
+# In[ ]:
+
+
+from pyspark.ml.evaluation import MulticlassClassificationEvaluator
+
+
+# In[ ]:
+
+
+# Select (prediction, true label) and compute test error
+acc_evaluator = MulticlassClassificationEvaluator(labelCol="PrivateIndex", predictionCol="prediction", metricName="accuracy")
+
+
+# In[ ]:
+
+
+dtc_acc = acc_evaluator.evaluate(dtc_predictions)
+print('accuracy of dtc: {0:2.2f}%'.format(dtc_acc*100))
+
