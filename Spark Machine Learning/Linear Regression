@@ -1,0 +1,192 @@
+
+
+# In[1]:
+
+
+from pyspark.sql import SparkSession
+
+
+# In[2]:
+
+
+spark = SparkSession.builder.appName('cruise').getOrCreate()
+
+
+# In[ ]:
+
+
+df = spark.read.csv('cruise_ship_info.csv',inferSchema=True,header=True)
+
+
+# In[ ]:
+
+
+df.printSchema()
+
+
+# In[ ]:
+
+
+df.show()
+
+
+# In[ ]:
+
+
+df.describe().show()
+
+
+# In[ ]:
+
+
+df.head(1)
+
+
+# In[ ]:
+
+
+df.head(1)[0]
+
+
+# In[ ]:
+
+
+for item in df.head(1)[0]:
+    print(item)
+
+
+# ## Dealing with the Cruise_line categorical variable
+# Ship Name is a useless arbitrary string, but the cruise_line itself may be useful. Let's make it into a categorical variable!
+
+# In[ ]:
+
+
+df.groupBy('Cruise_line').count().show()
+
+
+# In[ ]:
+
+
+from pyspark.ml.feature import StringIndexer
+indexer = StringIndexer(inputCol="Cruise_line", outputCol="cruise_cat")
+indexed = indexer.fit(df).transform(df)
+indexed.head(5)
+
+
+# In[ ]:
+
+
+from pyspark.ml.linalg import Vectors
+from pyspark.ml.feature import VectorAssembler
+
+
+# In[ ]:
+
+
+indexed.show()
+
+
+# In[ ]:
+
+
+indexed.columns
+
+
+# In[ ]:
+
+
+assembler = VectorAssembler(
+  inputCols=['Age',
+             'Tonnage',
+             'passengers',
+             'length',
+             'cabins',
+             'passenger_density',
+             'cruise_cat'],
+    outputCol="features")
+
+
+# In[ ]:
+
+
+output = assembler.transform(indexed)
+
+
+# In[ ]:
+
+
+output.select("features").show()
+
+
+# In[ ]:
+
+
+output.select("features", "crew").show()
+
+
+# In[ ]:
+
+
+final_data = output.select("features", "crew")
+
+
+# In[ ]:
+
+
+final_data.show()
+
+
+# In[ ]:
+
+
+train_data,test_data = final_data.randomSplit([0.7,0.3])
+
+
+# In[ ]:
+
+
+train_data.describe().show()
+
+
+# In[ ]:
+
+
+test_data.describe().show()
+
+
+# In[ ]:
+
+
+from pyspark.ml.regression import LinearRegression
+# Create a Linear Regression Model object
+lr = LinearRegression(labelCol='crew')
+
+
+# In[ ]:
+
+
+# from pyspark.ml.regression import LinearRegression
+# # Create a Linear Regression Model object - default inputs
+# lr = LinearRegression(featuresCol='features', labelCol='label', predictionCol='prediction')
+
+
+# In[ ]:
+
+
+# Fit the model to the data and call this model lrModel
+lrModel = lr.fit(train_data)
+
+
+# In[ ]:
+
+
+test_results = lrModel.evaluate(test_data)
+
+
+# In[ ]:
+
+
+print("MAE: {}".format(test_results.meanAbsoluteError))
+print("MSE: {}".format(test_results.meanSquaredError))
+print("RMSE: {}".format(test_results.rootMeanSquaredError))
+
